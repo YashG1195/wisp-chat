@@ -1,16 +1,12 @@
-/* Base reset — App.css handles the main styles */
+/* Base reset */
 *, *::before, *::after {
   box-sizing: border-box;
 }
 
-html {
-  height: 100%;
-}
-
-body {
+html, body {
   margin: 0;
   height: 100%;
-  background: #0a0b12;
+  background: #f7f8fa;
 }
 
 #root {

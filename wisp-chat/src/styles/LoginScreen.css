@@ -1,119 +1,171 @@
 /* ============================================
-   LOGIN SCREEN
+   LOGIN SCREEN — Spark Chat UI Style
    ============================================ */
 
 .login-bg {
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: #0a0b12;
-  background-image:
-    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99, 102, 241, 0.25) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%);
+  justify-content: space-between;
+  padding: 0 24px 48px;
+  /* Spark Chat diagonal gradient: blue → teal/mint */
+  background: linear-gradient(135deg, #4A80E4 0%, #2aabd2 45%, #1DD6A4 100%);
+  position: relative;
+  overflow: hidden;
 }
 
-.login-card {
-  background: rgba(22, 24, 36, 0.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  border-radius: 24px;
-  padding: 48px 40px;
-  width: 100%;
-  max-width: 400px;
-  text-align: center;
+/* Subtle texture overlay */
+.login-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 20%, rgba(255,255,255,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(255,255,255,0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* ---- Center Section ---- */
+.login-center {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  box-shadow:
-    0 0 0 1px rgba(255,255,255,0.04) inset,
-    0 32px 64px rgba(0, 0, 0, 0.5),
-    0 0 80px rgba(99, 102, 241, 0.08);
-  animation: cardIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  padding-top: 60px;
+  animation: loginFadeUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(24px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0)   scale(1); }
+@keyframes loginFadeUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-.login-logo {
+/* ---- Frosted Glass Bolt Circle ---- */
+.login-bolt-circle {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  margin-bottom: 8px;
+  box-shadow:
+    0 0 0 12px rgba(255,255,255,0.06),
+    0 8px 32px rgba(0,0,0,0.15);
+  animation: boltPulse 3s ease-in-out infinite;
 }
 
-.login-bolt {
-  font-size: 2.2rem;
-  filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.6));
-  animation: pulse-bolt 2.5s ease-in-out infinite;
+@keyframes boltPulse {
+  0%, 100% { box-shadow: 0 0 0 12px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.15); }
+  50%       { box-shadow: 0 0 0 20px rgba(255,255,255,0.10), 0 8px 40px rgba(0,0,0,0.2); }
 }
 
-@keyframes pulse-bolt {
-  0%, 100% { filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.5)); }
-  50%       { filter: drop-shadow(0 0 20px rgba(250, 204, 21, 0.9)); }
+.login-bolt-icon {
+  width: 44px;
+  height: 44px;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.2));
+}
+
+/* ---- Text ---- */
+.login-welcome {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.3px;
 }
 
 .login-title {
   margin: 0;
-  font-size: 2rem;
+  font-size: 2.4rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #818cf8, #c084fc, #e879f9);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #ffffff;
   letter-spacing: -0.5px;
+  line-height: 1.1;
 }
 
-.login-subtitle {
+.login-tagline {
   margin: 0;
-  color: #6b7280;
   font-size: 0.95rem;
-  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 400;
+  letter-spacing: 0.2px;
 }
 
-.google-btn {
+/* ---- Bottom Section ---- */
+.login-bottom {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  animation: loginFadeUp 0.6s 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ---- White Pill Button ---- */
+.google-pill-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  padding: 14px 20px;
-  margin-top: 8px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.06);
-  color: #e5e7eb;
-  font-size: 0.97rem;
+  padding: 18px 28px;
+  border-radius: 100px;
+  border: none;
+  background: rgba(255, 255, 255, 0.95);
+  color: #2a7de1;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: inherit;
   letter-spacing: 0.2px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15), 0 1px 4px rgba(0,0,0,0.1);
 }
 
-.google-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+.google-pill-btn:hover {
+  background: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0,0,0,0.1);
+  color: #1a6fd4;
 }
 
-.google-btn:active {
+.google-pill-btn:active {
   transform: translateY(0);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
-.google-icon {
-  width: 20px;
-  height: 20px;
+.google-arrow {
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 }
 
+/* ---- Footer ---- */
 .login-footer {
   margin: 0;
-  color: #4b5563;
-  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.78rem;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.login-link {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: underline;
+  text-decoration-color: rgba(255,255,255,0.4);
+  cursor: pointer;
+}
+
+.login-link:hover {
+  color: #ffffff;
 }
