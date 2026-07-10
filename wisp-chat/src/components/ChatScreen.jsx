@@ -6,6 +6,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  Timestamp,
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { db, auth } from "../firebase";
@@ -22,10 +23,74 @@ function getInitials(name) {
     .slice(0, 2);
 }
 
+function toDate(ts) {
+  if (!ts) return null;
+  return ts instanceof Timestamp ? ts.toDate() : new Date();
+}
+
+function isSameDay(a, b) {
+  if (!a || !b) return false;
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function formatDateLabel(date) {
+  if (!date) return "";
+  const now = new Date();
+  if (isSameDay(date, now)) return "Today";
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (isSameDay(date, yesterday)) return "Yesterday";
+  return date.toLocaleDateString([], {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+// Build rendering list with date separators and grouping info
+function buildRenderList(messages) {
+  const items = [];
+  let lastDate = null;
+  let lastUid = null;
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    const msgDate = toDate(msg.createdAt);
+
+    // Date separator
+    if (!isSameDay(msgDate, lastDate)) {
+      items.push({ type: "date", label: formatDateLabel(msgDate), id: `date-${i}` });
+      lastDate = msgDate;
+      lastUid = null; // reset grouping after date separator
+    }
+
+    // Determine if this is part of a group (same sender as previous)
+    const isFirstInGroup = msg.uid !== lastUid;
+    const nextMsg = messages[i + 1];
+    const isLastInGroup = !nextMsg || nextMsg.uid !== msg.uid;
+
+    items.push({
+      type: "message",
+      msg,
+      isFirstInGroup,
+      isLastInGroup,
+    });
+
+    lastUid = msg.uid;
+  }
+
+  return items;
+}
+
 export default function ChatScreen({ user }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [onlineCount, setOnlineCount] = useState(1);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -38,9 +103,23 @@ export default function ChatScreen({ user }) {
         ...doc.data(),
       }));
       setMessages(msgs);
+
+      // Estimate online count from unique senders in last 5 minutes
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const recentUids = new Set(
+        msgs
+          .filter((m) => {
+            const d = toDate(m.createdAt);
+            return d && d > fiveMinAgo;
+          })
+          .map((m) => m.uid)
+      );
+      // Always count at least the current user
+      recentUids.add(user.uid);
+      setOnlineCount(recentUids.size);
     });
     return () => unsubscribe();
-  }, []);
+  }, [user.uid]);
 
   // Auto-scroll to the latest message
   useEffect(() => {
@@ -84,13 +163,21 @@ export default function ChatScreen({ user }) {
     }
   }
 
+  const renderList = buildRenderList(messages);
+
   return (
     <div className="chat-screen">
       {/* Header */}
       <header className="chat-header">
         <div className="chat-header-brand">
           <span className="header-bolt">⚡</span>
-          <h1 className="chat-title">Wisp Chat</h1>
+          <div className="header-brand-text">
+            <h1 className="chat-title">Wisp Chat</h1>
+            <div className="chat-online">
+              <span className="online-dot" />
+              <span>{onlineCount} online</span>
+            </div>
+          </div>
         </div>
         <div className="chat-header-user">
           <div className="header-avatar">
@@ -107,7 +194,7 @@ export default function ChatScreen({ user }) {
               <polyline points="16 17 21 12 16 7"/>
               <line x1="21" y1="12" x2="9" y2="12"/>
             </svg>
-            Sign out
+            <span className="signout-label">Sign out</span>
           </button>
         </div>
       </header>
@@ -120,13 +207,26 @@ export default function ChatScreen({ user }) {
             <p>No messages yet. Say hello!</p>
           </div>
         )}
-        {messages.map((msg) => (
-          <MessageBubble
-            key={msg.id}
-            msg={msg}
-            isMine={msg.uid === user.uid}
-          />
-        ))}
+
+        {renderList.map((item) => {
+          if (item.type === "date") {
+            return (
+              <div key={item.id} className="date-separator">
+                <span>{item.label}</span>
+              </div>
+            );
+          }
+          return (
+            <MessageBubble
+              key={item.msg.id}
+              msg={item.msg}
+              isMine={item.msg.uid === user.uid}
+              isFirstInGroup={item.isFirstInGroup}
+              isLastInGroup={item.isLastInGroup}
+            />
+          );
+        })}
+
         <div ref={bottomRef} />
       </main>
 

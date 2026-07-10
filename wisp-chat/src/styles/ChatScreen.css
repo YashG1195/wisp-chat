@@ -29,6 +29,35 @@
   gap: 8px;
 }
 
+.header-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.chat-online {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: #6b7280;
+  letter-spacing: 0.2px;
+}
+
+.online-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+  animation: online-pulse 2s ease-in-out infinite;
+}
+
+@keyframes online-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(34, 197, 94, 0.5); }
+  50%       { box-shadow: 0 0 10px rgba(34, 197, 94, 0.9); }
+}
+
 .header-bolt {
   font-size: 1.4rem;
   filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.5));
@@ -83,6 +112,28 @@
   white-space: nowrap;
 }
 
+/* ---- Date Separator ---- */
+.date-separator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  color: #4b5563;
+  font-size: 0.73rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.date-separator::before,
+.date-separator::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(99, 102, 241, 0.15), transparent);
+}
+
+/* ---- Sign out ---- */
 .signout-btn {
   display: flex;
   align-items: center;
@@ -102,6 +153,12 @@
 .signout-btn svg {
   width: 14px;
   height: 14px;
+}
+
+@media (max-width: 480px) {
+  .signout-label { display: none; }
+  .header-name   { display: none; }
+  .signout-btn   { padding: 7px 10px; }
 }
 
 .signout-btn:hover {
