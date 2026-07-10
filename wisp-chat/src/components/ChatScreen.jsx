@@ -7,6 +7,9 @@ import {
   query,
   serverTimestamp,
   Timestamp,
+  doc,
+  setDoc,
+  deleteDoc,
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { db, auth } from "../firebase";
@@ -51,7 +54,6 @@ function formatDateLabel(date) {
   });
 }
 
-// Build rendering list with date separators and grouping info
 function buildRenderList(messages) {
   const items = [];
   let lastDate = null;
@@ -61,25 +63,17 @@ function buildRenderList(messages) {
     const msg = messages[i];
     const msgDate = toDate(msg.createdAt);
 
-    // Date separator
     if (!isSameDay(msgDate, lastDate)) {
       items.push({ type: "date", label: formatDateLabel(msgDate), id: `date-${i}` });
       lastDate = msgDate;
-      lastUid = null; // reset grouping after date separator
+      lastUid = null;
     }
 
-    // Determine if this is part of a group (same sender as previous)
     const isFirstInGroup = msg.uid !== lastUid;
     const nextMsg = messages[i + 1];
     const isLastInGroup = !nextMsg || nextMsg.uid !== msg.uid;
 
-    items.push({
-      type: "message",
-      msg,
-      isFirstInGroup,
-      isLastInGroup,
-    });
-
+    items.push({ type: "message", msg, isFirstInGroup, isLastInGroup });
     lastUid = msg.uid;
   }
 
@@ -91,8 +85,12 @@ export default function ChatScreen({ user }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [onlineCount, setOnlineCount] = useState(1);
+  const [typingUsers, setTypingUsers] = useState([]);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+  const listRef = useRef(null);
+  const typingTimerRef = useRef(null);
 
   // Subscribe to messages in real time
   useEffect(() => {
@@ -104,27 +102,77 @@ export default function ChatScreen({ user }) {
       }));
       setMessages(msgs);
 
-      // Estimate online count from unique senders in last 5 minutes
+      // Estimate online count
       const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
       const recentUids = new Set(
         msgs
-          .filter((m) => {
-            const d = toDate(m.createdAt);
-            return d && d > fiveMinAgo;
-          })
+          .filter((m) => { const d = toDate(m.createdAt); return d && d > fiveMinAgo; })
           .map((m) => m.uid)
       );
-      // Always count at least the current user
       recentUids.add(user.uid);
       setOnlineCount(recentUids.size);
     });
     return () => unsubscribe();
   }, [user.uid]);
 
-  // Auto-scroll to the latest message
+  // Subscribe to typing indicators
   useEffect(() => {
+    const q = query(collection(db, "typing"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const now = Date.now();
+      const typers = snapshot.docs
+        .map((d) => ({ uid: d.id, ...d.data() }))
+        .filter((t) => t.uid !== user.uid && now - t.updatedAt < 5000);
+      setTypingUsers(typers);
+    });
+    return () => unsubscribe();
+  }, [user.uid]);
+
+  // Auto-scroll only when near bottom
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const distFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+    if (distFromBottom < 120) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, typingUsers]);
+
+  // Scroll button visibility
+  function handleScroll() {
+    const list = listRef.current;
+    if (!list) return;
+    const dist = list.scrollHeight - list.scrollTop - list.clientHeight;
+    setShowScrollBtn(dist > 200);
+  }
+
+  function scrollToBottom() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }
+
+  // Typing indicator management
+  async function updateTyping(isTyping) {
+    const typingRef = doc(db, "typing", user.uid);
+    try {
+      if (isTyping) {
+        await setDoc(typingRef, {
+          uid: user.uid,
+          name: user.displayName,
+          updatedAt: Date.now(),
+        });
+      } else {
+        await deleteDoc(typingRef);
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  function handleTextChange(e) {
+    setText(e.target.value);
+    // Debounce: set typing, clear after 4s inactivity
+    updateTyping(true);
+    clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => updateTyping(false), 4000);
+  }
 
   async function handleSend(e) {
     e.preventDefault();
@@ -132,6 +180,9 @@ export default function ChatScreen({ user }) {
     if (!trimmed || sending) return;
 
     setSending(true);
+    clearTimeout(typingTimerRef.current);
+    updateTyping(false);
+
     try {
       await addDoc(collection(db, "messages"), {
         text: trimmed,
@@ -142,6 +193,8 @@ export default function ChatScreen({ user }) {
       });
       setText("");
       inputRef.current?.focus();
+      // Scroll to bottom after sending
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch (err) {
       console.error("Send error:", err);
     } finally {
@@ -156,6 +209,7 @@ export default function ChatScreen({ user }) {
   }
 
   async function handleSignOut() {
+    await updateTyping(false);
     try {
       await signOut(auth);
     } catch (err) {
@@ -163,7 +217,23 @@ export default function ChatScreen({ user }) {
     }
   }
 
+  // Cleanup typing on unmount
+  useEffect(() => {
+    return () => {
+      clearTimeout(typingTimerRef.current);
+      updateTyping(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const renderList = buildRenderList(messages);
+
+  function formatTyping() {
+    if (typingUsers.length === 0) return null;
+    if (typingUsers.length === 1) return `${typingUsers[0].name} is typing…`;
+    if (typingUsers.length === 2) return `${typingUsers[0].name} and ${typingUsers[1].name} are typing…`;
+    return "Several people are typing…";
+  }
 
   return (
     <div className="chat-screen">
@@ -200,7 +270,7 @@ export default function ChatScreen({ user }) {
       </header>
 
       {/* Message list */}
-      <main className="message-list">
+      <main className="message-list" ref={listRef} onScroll={handleScroll}>
         {messages.length === 0 && (
           <div className="empty-state">
             <span className="empty-bolt">⚡</span>
@@ -228,8 +298,29 @@ export default function ChatScreen({ user }) {
           );
         })}
 
+        {/* Typing indicator */}
+        {typingUsers.length > 0 && (
+          <div className="typing-indicator-row">
+            <div className="typing-bubble">
+              <span className="typing-dot" />
+              <span className="typing-dot" />
+              <span className="typing-dot" />
+            </div>
+            <span className="typing-label">{formatTyping()}</span>
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </main>
+
+      {/* Scroll-to-bottom button */}
+      {showScrollBtn && (
+        <button className="scroll-to-bottom" onClick={scrollToBottom} title="Scroll to latest">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+          </svg>
+        </button>
+      )}
 
       {/* Input form */}
       <form className="message-form" onSubmit={handleSend}>
@@ -238,7 +329,7 @@ export default function ChatScreen({ user }) {
           type="text"
           placeholder="Type a message..."
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={handleTextChange}
           onKeyDown={handleKeyDown}
           maxLength={500}
           autoComplete="off"

@@ -3,7 +3,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Messages: only authenticated users can read and create
+    // Messages: authenticated users can read and create
     match /messages/{messageId} {
       allow read: if request.auth != null;
 
@@ -21,6 +21,13 @@ service cloud.firestore {
 
       // Nobody can delete messages
       allow delete: if false;
+    }
+
+    // Typing indicators: each user can read all, write only their own doc
+    match /typing/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     // Deny everything else by default
