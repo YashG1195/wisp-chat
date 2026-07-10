@@ -223,6 +223,7 @@ export default function ChatScreen({ user }) {
               isMine={item.msg.uid === user.uid}
               isFirstInGroup={item.isFirstInGroup}
               isLastInGroup={item.isLastInGroup}
+              currentUid={user.uid}
             />
           );
         })}

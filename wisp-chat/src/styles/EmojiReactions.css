@@ -1,0 +1,126 @@
+/* ============================================
+   EMOJI REACTIONS
+   ============================================ */
+
+.emoji-reactions-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+}
+
+/* ---- Reaction Pills ---- */
+.reaction-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.reaction-pill {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: rgba(30, 32, 48, 0.8);
+  color: #e5e7eb;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  line-height: 1;
+}
+
+.reaction-pill:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(99, 102, 241, 0.1);
+  transform: scale(1.05);
+}
+
+.reaction-pill.mine {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.15);
+}
+
+.pill-count {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+/* ---- Add Button + Picker ---- */
+.emoji-add-wrapper {
+  position: relative;
+}
+
+.emoji-add-btn {
+  padding: 3px 7px;
+  border-radius: 12px;
+  border: 1px dashed rgba(99, 102, 241, 0.25);
+  background: transparent;
+  color: #6b7280;
+  font-size: 0.78rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+  font-family: inherit;
+  line-height: 1.2;
+}
+
+/* Show add button on hover over message bubble or on mobile */
+.msg-row:hover .emoji-add-btn,
+.emoji-add-btn:focus {
+  opacity: 1;
+}
+
+.emoji-add-btn:hover {
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #9ca3af;
+}
+
+/* ---- Emoji Quick Picker ---- */
+.emoji-picker {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+  background: rgba(20, 22, 34, 0.97);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  animation: pickerIn 0.15s ease both;
+  white-space: nowrap;
+}
+
+/* For mine bubbles, anchor picker to right */
+.msg-row.mine .emoji-picker {
+  left: auto;
+  right: 0;
+}
+
+@keyframes pickerIn {
+  from { opacity: 0; transform: scale(0.9) translateY(4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.emoji-option {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  transition: transform 0.1s ease, background 0.1s ease;
+  line-height: 1;
+}
+
+.emoji-option:hover {
+  transform: scale(1.25);
+  background: rgba(99, 102, 241, 0.15);
+}

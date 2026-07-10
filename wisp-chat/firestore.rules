@@ -15,8 +15,12 @@ service cloud.firestore {
                     && request.resource.data.sender.size() > 0
                     && request.resource.data.uid == request.auth.uid;
 
-      // Nobody can edit or delete messages
-      allow update, delete: if false;
+      // Allow authenticated users to update only the reactions field
+      allow update: if request.auth != null
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']);
+
+      // Nobody can delete messages
+      allow delete: if false;
     }
 
     // Deny everything else by default

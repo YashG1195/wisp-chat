@@ -1,4 +1,5 @@
 import { Timestamp } from "firebase/firestore";
+import EmojiReactions from "./EmojiReactions";
 import "../styles/MessageBubble.css";
 
 function formatTime(ts) {
@@ -17,7 +18,7 @@ function getInitials(name) {
     .slice(0, 2);
 }
 
-export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGroup }) {
+export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGroup, currentUid }) {
   // Show avatar only on the last message of a group (bottom of the group)
   const showAvatar = !isMine && isLastInGroup;
   // Show sender name only on first message of a group
@@ -59,6 +60,12 @@ export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGro
             <span className="msg-time">{formatTime(msg.createdAt)}</span>
           )}
         </div>
+        {/* Emoji reactions */}
+        <EmojiReactions
+          msgId={msg.id}
+          reactions={msg.reactions || []}
+          currentUid={currentUid}
+        />
       </div>
 
       {/* Mine avatar slot */}
