@@ -4,3 +4,5 @@ dist/
 .DS_Store
 wisp-chat/.vite/
 wisp-chat/dist/
+wisp-chat/.firebase/
+firebase-debug.log
