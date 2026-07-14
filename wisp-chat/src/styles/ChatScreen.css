@@ -171,12 +171,6 @@
   color: #111827;
 }
 
-.dropdown-email {
-  font-size: 0.75rem;
-  color: #6b7280;
-  word-break: break-all;
-}
-
 .dropdown-divider {
   height: 1px;
   background: #f3f4f6;
@@ -226,7 +220,7 @@
   gap: 12px;
   padding: 12px 20px;
   background: #fef2f2;
-  border-bottom: 2px solid #fca5a5;
+  border-bottom: 1px solid #fca5a5;
   flex-shrink: 0;
   animation: bannerIn 0.2s ease both;
   flex-wrap: wrap;
@@ -242,28 +236,6 @@
   font-weight: 500;
   color: #7f1d1d;
   flex: 1;
-}
-
-/* Local clear banner variant (blue) */
-.clear-banner.local {
-  background: #eff6ff;
-  border-bottom-color: #93c5fd;
-}
-.clear-banner.local .clear-banner-text {
-  color: #1e3a8a;
-}
-.clear-banner.local .clear-banner-confirm {
-  background: #3b82f6;
-}
-.clear-banner.local .clear-banner-confirm:hover:not(:disabled) {
-  background: #2563eb;
-}
-.clear-banner.local .clear-banner-cancel {
-  border-color: #93c5fd;
-  color: #1e3a8a;
-}
-.clear-banner.local .clear-banner-cancel:hover:not(:disabled) {
-  border-color: #3b82f6;
 }
 
 .clear-banner-actions {
@@ -286,7 +258,6 @@
 }
 
 .clear-banner-confirm:hover:not(:disabled) { background: #dc2626; }
-.clear-banner-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .clear-banner-cancel {
   padding: 7px 16px;
@@ -302,7 +273,6 @@
 }
 
 .clear-banner-cancel:hover:not(:disabled) { border-color: #ef4444; }
-.clear-banner-cancel:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ---- Date Separator ---- */
 .date-separator {
