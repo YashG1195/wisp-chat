@@ -10,7 +10,6 @@ import {
   doc,
   setDoc,
   deleteDoc,
-  where,
   getDocs,
   writeBatch,
 } from "firebase/firestore";
@@ -208,12 +207,11 @@ export default function ChatScreen({ user }) {
     try { await signOut(auth); } catch (err) { console.error(err); }
   }
 
-  // Clear all my messages using writeBatch
+  // Clear ALL messages using writeBatch
   async function handleClearAll() {
     setClearing(true);
     try {
-      const q = query(collection(db, "messages"), where("uid", "==", user.uid));
-      const snap = await getDocs(q);
+      const snap = await getDocs(collection(db, "messages"));
       const batch = writeBatch(db);
       snap.docs.forEach((d) => batch.delete(d.ref));
       await batch.commit();
@@ -249,7 +247,7 @@ export default function ChatScreen({ user }) {
       {clearConfirm && (
         <div className="clear-banner">
           <span className="clear-banner-text">
-            ⚠️ This will delete all your messages for everyone. Confirm?
+            ⚠️ This will delete ALL messages for everyone. Confirm?
           </span>
           <div className="clear-banner-actions">
             <button
@@ -323,7 +321,7 @@ export default function ChatScreen({ user }) {
                     <path d="M10 11v6" /><path d="M14 11v6" />
                     <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
                   </svg>
-                  Clear my messages
+                  Clear all messages
                 </button>
                 <div className="dropdown-divider" />
                 <button className="dropdown-item" onClick={handleSignOut}>
