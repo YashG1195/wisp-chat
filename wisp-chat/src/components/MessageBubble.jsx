@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { deleteDoc, doc, Timestamp } from "firebase/firestore";
 import { db } from "../firebase";
 import EmojiReactions from "./EmojiReactions";
@@ -20,21 +19,17 @@ function getInitials(name) {
     .slice(0, 2);
 }
 
-export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGroup, currentUid }) {
-  const [confirming, setConfirming] = useState(false);
+async function handleDelete(msgId) {
+  try {
+    await deleteDoc(doc(db, "messages", msgId));
+  } catch (err) {
+    console.error("Delete error:", err);
+  }
+}
 
+export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGroup, currentUid }) {
   const showAvatar = !isMine && isLastInGroup;
   const showSender = !isMine && isFirstInGroup;
-
-  async function handleConfirmDelete() {
-    try {
-      await deleteDoc(doc(db, "messages", msg.id));
-    } catch (err) {
-      console.error("Delete error:", err);
-    } finally {
-      setConfirming(false);
-    }
-  }
 
   return (
     <div
@@ -67,20 +62,21 @@ export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGro
       <div className="msg-content">
         {showSender && <div className="msg-sender">{msg.sender}</div>}
 
-        {/* Bubble + delete button row */}
+        {/* Bubble + delete button wrapper */}
         <div className="msg-bubble-row">
-          {/* Trash icon — only for mine, revealed on hover */}
-          {isMine && !confirming && (
+          {/* Delete button — only for mine, appears on hover */}
+          {isMine && (
             <button
               className="msg-delete-btn"
-              onClick={() => setConfirming(true)}
+              onClick={() => handleDelete(msg.id)}
               title="Delete message"
               aria-label="Delete message"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="3 6 5 6 21 6" />
                 <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                <path d="M10 11v6" /><path d="M14 11v6" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
                 <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
               </svg>
             </button>
@@ -93,15 +89,6 @@ export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGro
             )}
           </div>
         </div>
-
-        {/* Inline confirmation tooltip */}
-        {confirming && (
-          <div className="delete-confirm-tooltip">
-            <span className="delete-confirm-label">Delete?</span>
-            <button className="delete-confirm-yes" onClick={handleConfirmDelete}>Yes</button>
-            <button className="delete-confirm-no" onClick={() => setConfirming(false)}>No</button>
-          </div>
-        )}
 
         {/* Emoji reactions */}
         <EmojiReactions
