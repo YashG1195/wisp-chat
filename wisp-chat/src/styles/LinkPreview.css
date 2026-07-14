@@ -1,0 +1,58 @@
+/* ============================================
+   LINK PREVIEW COMPONENT
+   ============================================ */
+
+.link-preview-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background-color: #1f2229; /* Dark theme requested */
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-top: 6px;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  max-width: 100%;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.link-preview-card:hover {
+  background-color: #272a33;
+  transform: translateY(-2px);
+}
+
+.lp-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lp-favicon {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: #fff; /* In case the favicon has transparent parts */
+}
+
+.lp-title {
+  color: #f3f4f6;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lp-description {
+  color: #9ca3af;
+  font-size: 0.78rem;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}

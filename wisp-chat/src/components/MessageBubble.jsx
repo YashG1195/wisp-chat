@@ -1,6 +1,7 @@
 import { deleteDoc, doc, Timestamp } from "firebase/firestore";
 import { db } from "../firebase";
 import EmojiReactions from "./EmojiReactions";
+import LinkPreview from "./LinkPreview";
 import "../styles/MessageBubble.css";
 
 function formatTime(ts) {
@@ -30,6 +31,10 @@ async function handleDelete(msgId) {
 export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGroup, currentUid }) {
   const showAvatar = !isMine && isLastInGroup;
   const showSender = !isMine && isFirstInGroup;
+
+  // Extract URLs from the message text
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const urls = Array.from(new Set(msg.text.match(urlRegex) || []));
 
   return (
     <div
@@ -84,6 +89,9 @@ export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGro
 
           <div className={`msg-bubble ${isMine ? "bubble-mine" : "bubble-theirs"}`}>
             <span className="msg-text">{msg.text}</span>
+            {urls.map((url, i) => (
+              <LinkPreview key={i} url={url} />
+            ))}
             {isLastInGroup && (
               <span className="msg-time">{formatTime(msg.createdAt)}</span>
             )}
