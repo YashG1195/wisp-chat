@@ -87,6 +87,14 @@ export default function ChatScreen({ user }) {
   const [onlineCount, setOnlineCount] = useState(1);
   const [typingUsers, setTypingUsers] = useState([]);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  
+  // Clear chat states
+  const [clearTimestamp, setClearTimestamp] = useState(() => {
+    return localStorage.getItem("wisp-chat-clear-timestamp") || null;
+  });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const listRef = useRef(null);
@@ -217,6 +225,13 @@ export default function ChatScreen({ user }) {
     }
   }
 
+  function handleClearChat() {
+    const now = new Date().toISOString();
+    localStorage.setItem("wisp-chat-clear-timestamp", now);
+    setClearTimestamp(now);
+    setShowClearConfirm(false);
+  }
+
   // Cleanup typing on unmount
   useEffect(() => {
     return () => {
@@ -226,7 +241,14 @@ export default function ChatScreen({ user }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const renderList = buildRenderList(messages);
+  const visibleMessages = messages.filter((msg) => {
+    if (!clearTimestamp) return true;
+    const msgTime = toDate(msg.createdAt)?.getTime() || 0;
+    const clearTime = new Date(clearTimestamp).getTime();
+    return msgTime > clearTime;
+  });
+
+  const renderList = buildRenderList(visibleMessages);
 
   function formatTyping() {
     if (typingUsers.length === 0) return null;
@@ -250,14 +272,39 @@ export default function ChatScreen({ user }) {
           </div>
         </div>
         <div className="chat-header-user">
-          <div className="header-avatar">
-            {user.photoURL ? (
-              <img src={user.photoURL} alt={user.displayName} referrerPolicy="no-referrer" />
-            ) : (
-              <span>{getInitials(user.displayName)}</span>
+          <span className="header-name">{user.displayName}</span>
+          <div className="header-menu-wrapper">
+            <button className="header-avatar-btn" onClick={() => setMenuOpen(!menuOpen)}>
+              <div className="header-avatar">
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt={user.displayName} referrerPolicy="no-referrer" />
+                ) : (
+                  <span>{getInitials(user.displayName)}</span>
+                )}
+              </div>
+            </button>
+
+            {menuOpen && (
+              <div className="header-dropdown">
+                <button
+                  className="dropdown-item danger"
+                  onClick={() => { setShowClearConfirm(true); setMenuOpen(false); }}
+                >
+                  Clear Chat
+                </button>
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    localStorage.removeItem("wisp-chat-clear-timestamp");
+                    setClearTimestamp(null);
+                    setMenuOpen(false);
+                  }}
+                >
+                  Show all messages
+                </button>
+              </div>
             )}
           </div>
-          <span className="header-name">{user.displayName}</span>
           <button className="signout-btn" onClick={handleSignOut} title="Sign out">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -269,9 +316,26 @@ export default function ChatScreen({ user }) {
         </div>
       </header>
 
+      {/* Clear Chat Confirmation Banner */}
+      {showClearConfirm && (
+        <div className="clear-banner local">
+          <span className="clear-banner-text">
+            This will clear the chat from your view only. Others won't be affected. Confirm?
+          </span>
+          <div className="clear-banner-actions">
+            <button className="clear-banner-confirm" onClick={handleClearChat}>
+              Confirm
+            </button>
+            <button className="clear-banner-cancel" onClick={() => setShowClearConfirm(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Message list */}
       <main className="message-list" ref={listRef} onScroll={handleScroll}>
-        {messages.length === 0 && (
+        {visibleMessages.length === 0 && (
           <div className="empty-state">
             <span className="empty-bolt">⚡</span>
             <p>No messages yet. Say hello!</p>
