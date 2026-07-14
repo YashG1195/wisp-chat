@@ -244,6 +244,28 @@
   flex: 1;
 }
 
+/* Local clear banner variant (blue) */
+.clear-banner.local {
+  background: #eff6ff;
+  border-bottom-color: #93c5fd;
+}
+.clear-banner.local .clear-banner-text {
+  color: #1e3a8a;
+}
+.clear-banner.local .clear-banner-confirm {
+  background: #3b82f6;
+}
+.clear-banner.local .clear-banner-confirm:hover:not(:disabled) {
+  background: #2563eb;
+}
+.clear-banner.local .clear-banner-cancel {
+  border-color: #93c5fd;
+  color: #1e3a8a;
+}
+.clear-banner.local .clear-banner-cancel:hover:not(:disabled) {
+  border-color: #3b82f6;
+}
+
 .clear-banner-actions {
   display: flex;
   gap: 8px;

@@ -86,11 +86,44 @@ export default function ChatScreen({ user }) {
   const [clearConfirm, setClearConfirm] = useState(false);
   const [clearing, setClearing] = useState(false);
 
+  // Unread badge state
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Local clear chat state
+  const [localClearTimestamp, setLocalClearTimestamp] = useState(() => localStorage.getItem("wisp-chat-clear-timestamp"));
+  const [localClearConfirm, setLocalClearConfirm] = useState(false);
+
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const listRef = useRef(null);
   const menuRef = useRef(null);
   const typingTimerRef = useRef(null);
+  
+  const isTabVisible = useRef(document.visibilityState === "visible");
+  const isFirstSnapshot = useRef(true);
+
+  // Page visibility listener
+  useEffect(() => {
+    function handleVisibilityChange() {
+      const visible = document.visibilityState === "visible";
+      isTabVisible.current = visible;
+      if (visible) {
+        setUnreadCount(0);
+        document.title = "Wisp Chat";
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
+  // Title updater
+  useEffect(() => {
+    if (unreadCount > 0) {
+      document.title = `(${unreadCount}) Wisp Chat`;
+    } else {
+      document.title = "Wisp Chat";
+    }
+  }, [unreadCount]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -109,6 +142,20 @@ export default function ChatScreen({ user }) {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const msgs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
       setMessages(msgs);
+
+      // Unread count tracking (ignore initial load, only count when hidden)
+      if (!isFirstSnapshot.current && !isTabVisible.current) {
+        let newUnread = 0;
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added" && change.doc.data().uid !== user.uid) {
+            newUnread++;
+          }
+        });
+        if (newUnread > 0) {
+          setUnreadCount((prev) => prev + newUnread);
+        }
+      }
+      isFirstSnapshot.current = false;
 
       const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
       const recentUids = new Set(
@@ -224,6 +271,21 @@ export default function ChatScreen({ user }) {
     }
   }
 
+  // Local Clear Actions
+  function handleConfirmLocalClear() {
+    const now = new Date().toISOString();
+    localStorage.setItem("wisp-chat-clear-timestamp", now);
+    setLocalClearTimestamp(now);
+    setLocalClearConfirm(false);
+    setMenuOpen(false);
+  }
+
+  function handleRestoreMessages() {
+    localStorage.removeItem("wisp-chat-clear-timestamp");
+    setLocalClearTimestamp(null);
+    setMenuOpen(false);
+  }
+
   useEffect(() => {
     return () => {
       clearTimeout(typingTimerRef.current);
@@ -232,7 +294,14 @@ export default function ChatScreen({ user }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const renderList = buildRenderList(messages);
+  const filteredMessages = localClearTimestamp
+    ? messages.filter((m) => {
+        const d = toDate(m.createdAt);
+        return d && d > new Date(localClearTimestamp);
+      })
+    : messages;
+
+  const renderList = buildRenderList(filteredMessages);
 
   function formatTyping() {
     if (typingUsers.length === 0) return null;
@@ -243,7 +312,7 @@ export default function ChatScreen({ user }) {
 
   return (
     <div className="chat-screen">
-      {/* Clear-all confirmation banner */}
+      {/* Clear-all confirmation banner (Global) */}
       {clearConfirm && (
         <div className="clear-banner">
           <span className="clear-banner-text">
@@ -262,6 +331,23 @@ export default function ChatScreen({ user }) {
               onClick={() => setClearConfirm(false)}
               disabled={clearing}
             >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Local Clear confirmation banner */}
+      {localClearConfirm && (
+        <div className="clear-banner local">
+          <span className="clear-banner-text">
+            This will clear the chat from your view only. Others won't be affected. Confirm?
+          </span>
+          <div className="clear-banner-actions">
+            <button className="clear-banner-confirm" onClick={handleConfirmLocalClear}>
+              Confirm
+            </button>
+            <button className="clear-banner-cancel" onClick={() => setLocalClearConfirm(false)}>
               Cancel
             </button>
           </div>
@@ -312,6 +398,25 @@ export default function ChatScreen({ user }) {
                 </div>
                 <div className="dropdown-divider" />
                 <button
+                  className="dropdown-item"
+                  onClick={() => { setLocalClearConfirm(true); setMenuOpen(false); }}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                  </svg>
+                  Clear Chat (Local)
+                </button>
+                {localClearTimestamp && (
+                  <button className="dropdown-item" onClick={handleRestoreMessages}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Show all messages
+                  </button>
+                )}
+                <button
                   className="dropdown-item danger"
                   onClick={() => { setClearConfirm(true); setMenuOpen(false); }}
                 >
@@ -342,7 +447,7 @@ export default function ChatScreen({ user }) {
 
       {/* Message list */}
       <main className="message-list" ref={listRef} onScroll={handleScroll}>
-        {messages.length === 0 && (
+        {filteredMessages.length === 0 && (
           <div className="empty-state">
             <span className="empty-bolt">⚡</span>
             <p>No messages yet. Say hello!</p>
