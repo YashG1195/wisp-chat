@@ -19,8 +19,9 @@ service cloud.firestore {
       allow update: if request.auth != null
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']);
 
-      // Nobody can delete messages
-      allow delete: if false;
+      // Only the message owner can delete their own message
+      allow delete: if request.auth != null
+                    && request.auth.uid == resource.data.uid;
     }
 
     // Typing indicators: each user can read all, write only their own doc

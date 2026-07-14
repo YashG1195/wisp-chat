@@ -78,6 +78,54 @@
   letter-spacing: 0.2px;
 }
 
+/* ---- Bubble + Delete Row ---- */
+.msg-bubble-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Delete button — hidden by default, shown on .msg-row hover */
+.msg-delete-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #fca5a5;
+  background: #fff;
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  padding: 0;
+  order: -1; /* sits to the left of bubble for mine messages */
+}
+
+.msg-delete-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Reveal on row hover */
+.msg-row:hover .msg-delete-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.msg-delete-btn:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+  transform: scale(1.1);
+}
+
+.msg-delete-btn:active {
+  transform: scale(0.95);
+}
+
 /* ---- Bubble ---- */
 .msg-bubble {
   padding: 10px 14px;

@@ -1,4 +1,5 @@
-import { Timestamp } from "firebase/firestore";
+import { deleteDoc, doc, Timestamp } from "firebase/firestore";
+import { db } from "../firebase";
 import EmojiReactions from "./EmojiReactions";
 import "../styles/MessageBubble.css";
 
@@ -18,10 +19,16 @@ function getInitials(name) {
     .slice(0, 2);
 }
 
+async function handleDelete(msgId) {
+  try {
+    await deleteDoc(doc(db, "messages", msgId));
+  } catch (err) {
+    console.error("Delete error:", err);
+  }
+}
+
 export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGroup, currentUid }) {
-  // Show avatar only on the last message of a group (bottom of the group)
   const showAvatar = !isMine && isLastInGroup;
-  // Show sender name only on first message of a group
   const showSender = !isMine && isFirstInGroup;
 
   return (
@@ -35,7 +42,7 @@ export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGro
         .filter(Boolean)
         .join(" ")}
     >
-      {/* Placeholder to maintain layout when avatar is hidden (theirs only) */}
+      {/* Theirs: avatar slot */}
       {!isMine && (
         <div className="msg-avatar-slot">
           {showAvatar ? (
@@ -54,12 +61,35 @@ export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGro
 
       <div className="msg-content">
         {showSender && <div className="msg-sender">{msg.sender}</div>}
-        <div className={`msg-bubble ${isMine ? "bubble-mine" : "bubble-theirs"}`}>
-          <span className="msg-text">{msg.text}</span>
-          {isLastInGroup && (
-            <span className="msg-time">{formatTime(msg.createdAt)}</span>
+
+        {/* Bubble + delete button wrapper */}
+        <div className="msg-bubble-row">
+          {/* Delete button — only for mine, appears on hover */}
+          {isMine && (
+            <button
+              className="msg-delete-btn"
+              onClick={() => handleDelete(msg.id)}
+              title="Delete message"
+              aria-label="Delete message"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+              </svg>
+            </button>
           )}
+
+          <div className={`msg-bubble ${isMine ? "bubble-mine" : "bubble-theirs"}`}>
+            <span className="msg-text">{msg.text}</span>
+            {isLastInGroup && (
+              <span className="msg-time">{formatTime(msg.createdAt)}</span>
+            )}
+          </div>
         </div>
+
         {/* Emoji reactions */}
         <EmojiReactions
           msgId={msg.id}
@@ -68,7 +98,7 @@ export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGro
         />
       </div>
 
-      {/* Mine avatar slot */}
+      {/* Mine: avatar slot */}
       {isMine && (
         <div className="msg-avatar-slot">
           {showAvatar || isLastInGroup ? (
