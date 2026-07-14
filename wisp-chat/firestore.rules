@@ -22,6 +22,7 @@ service cloud.firestore {
       // Only the message owner can delete their own message
       allow delete: if request.auth != null
                     && request.auth.uid == resource.data.uid;
+
     }
 
     // Typing indicators: each user can read all, write only their own doc
