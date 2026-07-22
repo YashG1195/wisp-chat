@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { deleteDoc, doc, Timestamp } from "firebase/firestore";
+import { useRef, useState } from "react";
+import { deleteDoc, doc, updateDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { db } from "../firebase";
 import EmojiReactions from "./EmojiReactions";
 import LinkPreview from "./LinkPreview";
@@ -36,15 +36,100 @@ function Lightbox({ src, onClose }) {
   );
 }
 
+// Inline edit form
+function InlineEdit({ msg, onCancel }) {
+  const [editText, setEditText] = useState(msg.text || "");
+  const [saving, setSaving] = useState(false);
+  const textareaRef = useRef(null);
+  const MAX = 500;
+
+  const trimmed = editText.trim();
+  const isUnchanged = trimmed === (msg.text || "").trim();
+  const isEmpty = trimmed.length === 0;
+  const canSave = !isEmpty && !isUnchanged && trimmed.length <= MAX && !saving;
+
+  async function handleSave() {
+    if (!canSave) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, "messages", msg.id), {
+        text: trimmed,
+        edited: true,
+        editedAt: serverTimestamp(),
+      });
+      onCancel(); // exit edit mode after save
+    } catch (err) {
+      console.error("Edit error:", err);
+      setSaving(false);
+    }
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === "Escape") { onCancel(); return; }
+    if (e.key === "Enter" && e.ctrlKey) { e.preventDefault(); handleSave(); }
+  }
+
+  // Focus textarea on mount
+  useState(() => {
+    setTimeout(() => {
+      const ta = textareaRef.current;
+      if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+    }, 0);
+  });
+
+  const remaining = MAX - editText.length;
+
+  return (
+    <div className="inline-edit-form">
+      <textarea
+        ref={textareaRef}
+        className="inline-edit-textarea"
+        value={editText}
+        onChange={(e) => setEditText(e.target.value)}
+        onKeyDown={handleKeyDown}
+        maxLength={MAX}
+        rows={3}
+        autoFocus
+      />
+      <div className="inline-edit-footer">
+        <span className={`inline-edit-count ${remaining < 20 ? "warn" : ""}`}>
+          {remaining} left
+        </span>
+        <div className="inline-edit-actions">
+          <button className="inline-edit-cancel" onClick={onCancel} disabled={saving}>
+            Cancel
+          </button>
+          <button
+            className="inline-edit-save"
+            onClick={handleSave}
+            disabled={!canSave}
+            title="Ctrl+Enter"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+      <p className="inline-edit-hint">Ctrl+Enter to save · Esc to cancel</p>
+    </div>
+  );
+}
+
 export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGroup, currentUid }) {
   const showAvatar = !isMine && isLastInGroup;
   const showSender = !isMine && isFirstInGroup;
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [imgError, setImgError] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Extract URLs from text only (not from image messages)
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const urls = msg.imageUrl ? [] : Array.from(new Set((msg.text || "").match(urlRegex) || []));
+
+  // Tooltip for edited label
+  const editedAtFormatted = msg.editedAt
+    ? (msg.editedAt instanceof Timestamp ? msg.editedAt.toDate() : new Date())
+        .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : null;
 
   return (
     <>
@@ -54,6 +139,7 @@ export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGro
           isMine ? "mine" : "theirs",
           isFirstInGroup ? "first-in-group" : "",
           isLastInGroup ? "last-in-group" : "",
+          isEditing ? "editing" : "",
         ].filter(Boolean).join(" ")}
       >
         {/* Theirs: avatar slot */}
@@ -76,27 +162,44 @@ export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGro
         <div className="msg-content">
           {showSender && <div className="msg-sender">{msg.sender}</div>}
 
-          {/* Bubble + delete button wrapper */}
+          {/* Bubble + action buttons wrapper */}
           <div className="msg-bubble-row">
-            {/* Delete button — only for mine, appears on hover */}
-            {isMine && (
-              <button
-                className="msg-delete-btn"
-                onClick={() => handleDelete(msg.id)}
-                title="Delete message"
-                aria-label="Delete message"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                  <path d="M10 11v6" />
-                  <path d="M14 11v6" />
-                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                </svg>
-              </button>
+            {/* Action buttons — only for mine messages, appear on hover */}
+            {isMine && !isEditing && (
+              <div className="msg-actions">
+                {/* Edit button — text messages only */}
+                {!msg.imageUrl && (
+                  <button
+                    className="msg-action-btn msg-edit-btn"
+                    onClick={() => setIsEditing(true)}
+                    title="Edit message"
+                    aria-label="Edit message"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </button>
+                )}
+                {/* Delete button */}
+                <button
+                  className="msg-action-btn msg-delete-btn"
+                  onClick={() => handleDelete(msg.id)}
+                  title="Delete message"
+                  aria-label="Delete message"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                    <path d="M10 11v6" />
+                    <path d="M14 11v6" />
+                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                  </svg>
+                </button>
+              </div>
             )}
 
-            <div className={`msg-bubble ${isMine ? "bubble-mine" : "bubble-theirs"}`}>
+            <div className={`msg-bubble ${isMine ? "bubble-mine" : "bubble-theirs"}${isEditing ? " bubble-editing" : ""}`}>
               {/* Image message */}
               {msg.imageUrl && (
                 <div className="msg-image-wrapper">
@@ -121,26 +224,46 @@ export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGro
                 </div>
               )}
 
-              {/* Text / caption */}
-              {msg.text && <span className="msg-text">{msg.text}</span>}
+              {/* Inline edit mode OR normal text */}
+              {isEditing ? (
+                <InlineEdit msg={msg} onCancel={() => setIsEditing(false)} />
+              ) : (
+                <>
+                  {msg.text && (
+                    <span className="msg-text">
+                      {msg.text}
+                      {msg.edited && (
+                        <span
+                          className="msg-edited-label"
+                          title={editedAtFormatted ? `Edited at ${editedAtFormatted}` : "Edited"}
+                        >
+                          {" "}(edited)
+                        </span>
+                      )}
+                    </span>
+                  )}
 
-              {/* Link previews (text-only messages) */}
-              {urls.map((url, i) => (
-                <LinkPreview key={i} url={url} />
-              ))}
+                  {/* Link previews (text-only messages) */}
+                  {urls.map((url, i) => (
+                    <LinkPreview key={i} url={url} />
+                  ))}
+                </>
+              )}
 
-              {isLastInGroup && (
+              {!isEditing && isLastInGroup && (
                 <span className="msg-time">{formatTime(msg.createdAt)}</span>
               )}
             </div>
           </div>
 
           {/* Emoji reactions */}
-          <EmojiReactions
-            msgId={msg.id}
-            reactions={msg.reactions || []}
-            currentUid={currentUid}
-          />
+          {!isEditing && (
+            <EmojiReactions
+              msgId={msg.id}
+              reactions={msg.reactions || []}
+              currentUid={currentUid}
+            />
+          )}
         </div>
 
         {/* Mine: avatar slot */}

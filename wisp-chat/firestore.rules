@@ -31,9 +31,25 @@ service cloud.firestore {
                       )
                     );
 
-      // Allow authenticated users to update only the reactions field
+      // Allow two kinds of update:
+      // 1. Any authenticated user can update only the reactions field
+      // 2. The message owner can edit text (text, edited, editedAt fields only)
       allow update: if request.auth != null
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']);
+                    && (
+                      // Reactions update — any authenticated user
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+                      ||
+                      // Text edit — owner only
+                      (
+                        request.auth.uid == resource.data.uid
+                        && request.resource.data.text is string
+                        && request.resource.data.text.size() > 0
+                        && request.resource.data.text.size() <= 500
+                        && request.resource.data.edited == true
+                        && request.resource.data.diff(resource.data)
+                              .affectedKeys().hasOnly(['text', 'edited', 'editedAt'])
+                      )
+                    );
 
       // Only the message owner can delete their own message
       allow delete: if request.auth != null

@@ -78,42 +78,74 @@
   letter-spacing: 0.2px;
 }
 
-/* ---- Bubble + Delete Row ---- */
+/* ---- Bubble + Action Buttons Row ---- */
 .msg-bubble-row {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-/* Delete button — hidden by default, shown on .msg-row hover */
-.msg-delete-btn {
+/* Action button group: sits left of bubble for 'mine' messages */
+.msg-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  order: -1;
   flex-shrink: 0;
+}
+
+/* Reveal on row hover */
+.msg-row:hover .msg-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Hide actions while editing */
+.msg-row.editing .msg-actions {
+  display: none;
+}
+
+/* Base action button */
+.msg-action-btn {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 1px solid #fca5a5;
+  border: 1px solid #e5e7eb;
   background: #fff;
-  color: #ef4444;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
   padding: 0;
-  order: -1; /* sits to the left of bubble for mine messages */
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-.msg-delete-btn svg {
+.msg-action-btn svg {
   width: 13px;
   height: 13px;
 }
 
-/* Reveal on row hover */
-.msg-row:hover .msg-delete-btn {
-  opacity: 1;
-  pointer-events: auto;
+/* Edit button */
+.msg-edit-btn {
+  color: #4A80E4;
+  border-color: #c7d7f8;
+}
+
+.msg-edit-btn:hover {
+  background: #f0f4ff;
+  border-color: #4A80E4;
+  transform: scale(1.1);
+}
+
+.msg-edit-btn:active { transform: scale(0.95); }
+
+/* Delete button */
+.msg-delete-btn {
+  color: #ef4444;
+  border-color: #fca5a5;
 }
 
 .msg-delete-btn:hover {
@@ -122,9 +154,7 @@
   transform: scale(1.1);
 }
 
-.msg-delete-btn:active {
-  transform: scale(0.95);
-}
+.msg-delete-btn:active { transform: scale(0.95); }
 
 /* ---- Bubble ---- */
 .msg-bubble {
@@ -226,3 +256,151 @@
   opacity: 0.7;
 }
 
+/* ---- (edited) label ---- */
+.msg-edited-label {
+  font-size: 0.68rem;
+  opacity: 0.55;
+  font-style: italic;
+  cursor: help;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+}
+
+.msg-edited-label:hover {
+  opacity: 0.85;
+}
+
+/* Tooltip is handled via native title= attribute (browser tooltip) */
+
+/* ---- Bubble editing state ---- */
+.msg-bubble.bubble-editing {
+  padding: 8px 10px;
+  min-width: 260px;
+  max-width: 100%;
+}
+
+/* ---- Inline Edit Form ---- */
+.inline-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.inline-edit-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.15);
+  color: inherit;
+  font-size: 0.93rem;
+  font-family: inherit;
+  line-height: 1.45;
+  resize: none;
+  outline: none;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+/* For received (theirs) bubbles: dark border on white */
+.bubble-theirs .inline-edit-textarea {
+  border-color: #d1d5db;
+  background: #f9fafb;
+  color: #1a1a2e;
+}
+
+.inline-edit-textarea:focus {
+  border-color: rgba(255,255,255,0.8);
+}
+
+.bubble-theirs .inline-edit-textarea:focus {
+  border-color: #4A80E4;
+}
+
+.inline-edit-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.inline-edit-count {
+  font-size: 0.72rem;
+  opacity: 0.6;
+  color: inherit;
+}
+
+.inline-edit-count.warn {
+  color: #f97316;
+  opacity: 1;
+  font-weight: 600;
+}
+
+.inline-edit-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.inline-edit-cancel,
+.inline-edit-save {
+  padding: 4px 12px;
+  border-radius: 100px;
+  border: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+}
+
+.inline-edit-cancel {
+  background: rgba(255,255,255,0.2);
+  color: inherit;
+}
+
+.bubble-theirs .inline-edit-cancel {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.inline-edit-cancel:hover:not(:disabled) {
+  background: rgba(255,255,255,0.35);
+}
+
+.bubble-theirs .inline-edit-cancel:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.inline-edit-save {
+  background: rgba(255,255,255,0.9);
+  color: #2a7de1;
+}
+
+.bubble-theirs .inline-edit-save {
+  background: #4A80E4;
+  color: #fff;
+}
+
+.inline-edit-save:hover:not(:disabled) {
+  background: #ffffff;
+  transform: scale(1.03);
+}
+
+.bubble-theirs .inline-edit-save:hover:not(:disabled) {
+  background: #3b6fd4;
+}
+
+.inline-edit-save:disabled,
+.inline-edit-cancel:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.inline-edit-hint {
+  margin: 0;
+  font-size: 0.68rem;
+  opacity: 0.45;
+  color: inherit;
+  text-align: right;
+}
