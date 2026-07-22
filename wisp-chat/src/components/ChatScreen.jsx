@@ -91,9 +91,14 @@ export default function ChatScreen({ user }) {
   const [showClearBanner, setShowClearBanner] = useState(false);
 
   // Image upload state
-  const [uploadProgress, setUploadProgress] = useState(null); // 0-100 or null
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [uploadError, setUploadError] = useState(null);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  // Search state
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const searchInputRef = useRef(null);
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -312,14 +317,37 @@ export default function ChatScreen({ user }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const visibleMessages = messages.filter((m) => {
+  // Apply clear timestamp filter
+  const clearFiltered = messages.filter((m) => {
     if (!clearTimestamp) return true;
     const msgDate = toDate(m.createdAt);
     if (!msgDate) return true;
     return msgDate > new Date(clearTimestamp);
   });
 
+  // Apply search filter (client-side, case-insensitive, text + sender)
+  const trimmedSearch = searchTerm.trim().toLowerCase();
+  const visibleMessages = trimmedSearch
+    ? clearFiltered.filter((m) => {
+        const textMatch = (m.text || "").toLowerCase().includes(trimmedSearch);
+        const senderMatch = (m.sender || "").toLowerCase().includes(trimmedSearch);
+        // For image-only messages, mark as [Image] for sender search
+        const imgMatch = m.imageUrl && !m.text && senderMatch;
+        return textMatch || senderMatch || imgMatch;
+      })
+    : clearFiltered;
+
   const renderList = buildRenderList(visibleMessages);
+
+  function openSearch() {
+    setIsSearchOpen(true);
+    setTimeout(() => searchInputRef.current?.focus(), 80);
+  }
+
+  function closeSearch() {
+    setIsSearchOpen(false);
+    setSearchTerm("");
+  }
 
   function formatTyping() {
     if (typingUsers.length === 0) return null;
@@ -408,6 +436,18 @@ export default function ChatScreen({ user }) {
               </div>
             )}
           </div>
+          {/* Search icon button */}
+          <button
+            className={`header-icon-btn${isSearchOpen ? " active" : ""}`}
+            onClick={isSearchOpen ? closeSearch : openSearch}
+            title="Search messages"
+            aria-label="Search messages"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
           <span className="header-name">{user.displayName}</span>
           <button className="signout-btn" onClick={handleSignOut} title="Sign out">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -420,7 +460,39 @@ export default function ChatScreen({ user }) {
         </div>
       </header>
 
-      {/* Clear Chat Confirmation Banner */}
+      {/* Search bar — slides in below header */}
+      <div className={`search-bar-wrapper${isSearchOpen ? " open" : ""}`}>
+        <div className="search-bar-inner">
+          <svg className="search-bar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            ref={searchInputRef}
+            type="text"
+            className="search-bar-input"
+            placeholder="Search messages or sender name…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => e.key === "Escape" && closeSearch()}
+          />
+          {searchTerm && (
+            <button className="search-bar-clear" onClick={() => setSearchTerm("")} title="Clear">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          )}
+          <button className="search-bar-close" onClick={closeSearch} title="Close search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <p className="search-bar-note">Searching in current session only</p>
+      </div>
       {showClearBanner && (
         <div className="clear-banner">
           <span className="clear-banner-text">
@@ -433,12 +505,34 @@ export default function ChatScreen({ user }) {
         </div>
       )}
 
+      {/* Search results count */}
+      {isSearchOpen && trimmedSearch && (
+        <div className="search-result-count">
+          {visibleMessages.length === 0
+            ? "No messages match your search"
+            : `${visibleMessages.length} message${visibleMessages.length !== 1 ? "s" : ""} found`}
+        </div>
+      )}
+
       {/* Message list */}
       <main className="message-list" ref={listRef} onScroll={handleScroll}>
         {visibleMessages.length === 0 && (
           <div className="empty-state">
-            <span className="empty-bolt">⚡</span>
-            <p>No messages yet. Say hello!</p>
+            {isSearchOpen && trimmedSearch ? (
+              <>
+                <svg className="empty-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  <line x1="8" y1="11" x2="14" y2="11" strokeWidth="1.5"/>
+                </svg>
+                <p>No messages match your search</p>
+              </>
+            ) : (
+              <>
+                <span className="empty-bolt">⚡</span>
+                <p>No messages yet. Say hello!</p>
+              </>
+            )}
           </div>
         )}
 
@@ -458,6 +552,7 @@ export default function ChatScreen({ user }) {
               isFirstInGroup={item.isFirstInGroup}
               isLastInGroup={item.isLastInGroup}
               currentUid={user.uid}
+              searchTerm={trimmedSearch}
             />
           );
         })}
@@ -486,8 +581,11 @@ export default function ChatScreen({ user }) {
         </button>
       )}
 
-      {/* Input form */}
-      <form className="message-form" onSubmit={handleSend}>
+      {/* Input form — disabled while searching */}
+      <form
+        className={`message-form${isSearchOpen ? " form-disabled" : ""}`}
+        onSubmit={handleSend}
+      >
         {/* Hidden file input */}
         <input
           ref={fileInputRef}
@@ -502,7 +600,7 @@ export default function ChatScreen({ user }) {
           type="button"
           className="attach-btn"
           onClick={() => fileInputRef.current?.click()}
-          disabled={sending}
+          disabled={sending || isSearchOpen}
           title="Send image"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -516,13 +614,13 @@ export default function ChatScreen({ user }) {
           <input
             ref={inputRef}
             type="text"
-            placeholder={uploadProgress !== null ? "Uploading…" : "Type a message or drop an image…"}
+            placeholder={isSearchOpen ? "Search mode active — close search to type" : uploadProgress !== null ? "Uploading…" : "Type a message or drop an image…"}
             value={text}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             maxLength={500}
             autoComplete="off"
-            disabled={uploadProgress !== null}
+            disabled={uploadProgress !== null || isSearchOpen}
           />
           {/* Upload progress bar */}
           {uploadProgress !== null && (
@@ -541,7 +639,7 @@ export default function ChatScreen({ user }) {
 
         <button
           type="submit"
-          disabled={!text.trim() || sending}
+          disabled={!text.trim() || sending || isSearchOpen}
           className="send-btn"
         >
           <svg viewBox="0 0 24 24" fill="currentColor">

@@ -24,6 +24,23 @@ async function handleDelete(msgId) {
   }
 }
 
+// Helper to highlight search terms
+function HighlightText({ text, highlight }) {
+  if (!highlight.trim()) return <>{text}</>;
+  const parts = text.split(new RegExp(`(${highlight})`, "gi"));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === highlight.toLowerCase() ? (
+          <mark key={i} className="search-highlight">{part}</mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
+
 // Lightbox component
 function Lightbox({ src, onClose }) {
   return (
@@ -114,7 +131,7 @@ function InlineEdit({ msg, onCancel }) {
   );
 }
 
-export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGroup, currentUid }) {
+export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGroup, currentUid, searchTerm = "" }) {
   const showAvatar = !isMine && isLastInGroup;
   const showSender = !isMine && isFirstInGroup;
   const [lightboxSrc, setLightboxSrc] = useState(null);
@@ -160,7 +177,11 @@ export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGro
         )}
 
         <div className="msg-content">
-          {showSender && <div className="msg-sender">{msg.sender}</div>}
+          {showSender && (
+            <div className="msg-sender">
+              <HighlightText text={msg.sender} highlight={searchTerm} />
+            </div>
+          )}
 
           {/* Bubble + action buttons wrapper */}
           <div className="msg-bubble-row">
@@ -231,7 +252,7 @@ export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGro
                 <>
                   {msg.text && (
                     <span className="msg-text">
-                      {msg.text}
+                      <HighlightText text={msg.text} highlight={searchTerm} />
                       {msg.edited && (
                         <span
                           className="msg-edited-label"

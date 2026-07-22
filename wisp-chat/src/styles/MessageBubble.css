@@ -404,3 +404,17 @@
   color: inherit;
   text-align: right;
 }
+
+/* ---- Search Highlight ---- */
+.search-highlight {
+  background-color: rgba(253, 224, 71, 0.4);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 600;
+}
+
+.bubble-mine .search-highlight {
+  background-color: rgba(253, 224, 71, 0.7);
+  color: #1a1a2e;
+}
