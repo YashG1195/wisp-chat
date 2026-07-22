@@ -11,19 +11,18 @@ import {
   setDoc,
   deleteDoc,
 } from "firebase/firestore";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { signOut } from "firebase/auth";
-import { db, auth } from "../firebase";
+import { db, auth, storage } from "../firebase";
 import MessageBubble from "./MessageBubble";
 import "../styles/ChatScreen.css";
 
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+
 function getInitials(name) {
   if (!name) return "?";
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 }
 
 function toDate(ts) {
@@ -47,11 +46,7 @@ function formatDateLabel(date) {
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
   if (isSameDay(date, yesterday)) return "Yesterday";
-  return date.toLocaleDateString([], {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-  });
+  return date.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
 }
 
 function buildRenderList(messages) {
@@ -95,27 +90,28 @@ export default function ChatScreen({ user }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showClearBanner, setShowClearBanner] = useState(false);
 
+  // Image upload state
+  const [uploadProgress, setUploadProgress] = useState(null); // 0-100 or null
+  const [uploadError, setUploadError] = useState(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const listRef = useRef(null);
   const typingTimerRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Subscribe to messages in real time
   useEffect(() => {
     const q = query(collection(db, "messages"), orderBy("createdAt", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const msgs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
       setMessages(msgs);
 
-      // Estimate online count
       const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
       const recentUids = new Set(
-        msgs
-          .filter((m) => { const d = toDate(m.createdAt); return d && d > fiveMinAgo; })
-          .map((m) => m.uid)
+        msgs.filter((m) => { const d = toDate(m.createdAt); return d && d > fiveMinAgo; })
+            .map((m) => m.uid)
       );
       recentUids.add(user.uid);
       setOnlineCount(recentUids.size);
@@ -146,28 +142,21 @@ export default function ChatScreen({ user }) {
     }
   }, [messages, typingUsers]);
 
-  // Scroll button visibility
   function handleScroll() {
     const list = listRef.current;
     if (!list) return;
-    const dist = list.scrollHeight - list.scrollTop - list.clientHeight;
-    setShowScrollBtn(dist > 200);
+    setShowScrollBtn(list.scrollHeight - list.scrollTop - list.clientHeight > 200);
   }
 
   function scrollToBottom() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }
 
-  // Typing indicator management
   async function updateTyping(isTyping) {
     const typingRef = doc(db, "typing", user.uid);
     try {
       if (isTyping) {
-        await setDoc(typingRef, {
-          uid: user.uid,
-          name: user.displayName,
-          updatedAt: Date.now(),
-        });
+        await setDoc(typingRef, { uid: user.uid, name: user.displayName, updatedAt: Date.now() });
       } else {
         await deleteDoc(typingRef);
       }
@@ -176,7 +165,6 @@ export default function ChatScreen({ user }) {
 
   function handleTextChange(e) {
     setText(e.target.value);
-    // Debounce: set typing, clear after 4s inactivity
     updateTyping(true);
     clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(() => updateTyping(false), 4000);
@@ -201,7 +189,6 @@ export default function ChatScreen({ user }) {
       });
       setText("");
       inputRef.current?.focus();
-      // Scroll to bottom after sending
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch (err) {
       console.error("Send error:", err);
@@ -211,18 +198,12 @@ export default function ChatScreen({ user }) {
   }
 
   function handleKeyDown(e) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      handleSend(e);
-    }
+    if (e.key === "Enter" && !e.shiftKey) handleSend(e);
   }
 
   async function handleSignOut() {
     await updateTyping(false);
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.error("Sign-out error:", err);
-    }
+    try { await signOut(auth); } catch (err) { console.error("Sign-out error:", err); }
   }
 
   function handleClearConfirm() {
@@ -238,6 +219,90 @@ export default function ChatScreen({ user }) {
     setShowDropdown(false);
   }
 
+  // --- Image upload ---
+  function validateFile(file) {
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setUploadError("Only JPEG, PNG, GIF, and WebP images are allowed.");
+      return false;
+    }
+    if (file.size > MAX_SIZE) {
+      setUploadError("Image exceeds 5MB limit. Please choose a smaller file.");
+      return false;
+    }
+    setUploadError(null);
+    return true;
+  }
+
+  async function uploadImage(file, caption) {
+    if (!validateFile(file)) return;
+
+    const timestamp = Date.now();
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `images/${user.uid}/${timestamp}_${safeName}`;
+    const storageRef = ref(storage, path);
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    setSending(true);
+    setUploadProgress(0);
+
+    uploadTask.on(
+      "state_changed",
+      (snap) => {
+        const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+        setUploadProgress(pct);
+      },
+      (err) => {
+        console.error("Upload error:", err);
+        setUploadError("Upload failed. Please try again.");
+        setUploadProgress(null);
+        setSending(false);
+      },
+      async () => {
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          await addDoc(collection(db, "messages"), {
+            text: caption.trim(),
+            imageUrl: downloadURL,
+            sender: user.displayName,
+            uid: user.uid,
+            photoURL: user.photoURL || null,
+            createdAt: serverTimestamp(),
+          });
+          setText("");
+          setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+        } catch (err) {
+          console.error("Post-upload error:", err);
+          setUploadError("Failed to send image message.");
+        } finally {
+          setUploadProgress(null);
+          setSending(false);
+        }
+      }
+    );
+  }
+
+  function handleFileInputChange(e) {
+    const file = e.target.files?.[0];
+    if (file) uploadImage(file, text);
+    e.target.value = ""; // reset input
+  }
+
+  // Drag and drop handlers
+  function handleDragOver(e) {
+    e.preventDefault();
+    setIsDragOver(true);
+  }
+  function handleDragLeave(e) {
+    // Only clear if leaving the chat-screen entirely
+    if (!e.currentTarget.contains(e.relatedTarget)) setIsDragOver(false);
+  }
+  function handleDrop(e) {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) uploadImage(file, text);
+  }
+
   // Cleanup typing on unmount
   useEffect(() => {
     return () => {
@@ -250,10 +315,10 @@ export default function ChatScreen({ user }) {
   const visibleMessages = messages.filter((m) => {
     if (!clearTimestamp) return true;
     const msgDate = toDate(m.createdAt);
-    if (!msgDate) return true; // keep newly sent messages
+    if (!msgDate) return true;
     return msgDate > new Date(clearTimestamp);
   });
-  
+
   const renderList = buildRenderList(visibleMessages);
 
   function formatTyping() {
@@ -264,7 +329,26 @@ export default function ChatScreen({ user }) {
   }
 
   return (
-    <div className="chat-screen">
+    <div
+      className={`chat-screen${isDragOver ? " drag-over" : ""}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag-and-drop overlay */}
+      {isDragOver && (
+        <div className="dropzone-overlay">
+          <div className="dropzone-inner">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <p>Drop image to send</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="chat-header">
         <div className="chat-header-brand">
@@ -279,8 +363,8 @@ export default function ChatScreen({ user }) {
         </div>
         <div className="chat-header-user">
           <div className="header-menu-wrapper">
-            <button 
-              className="header-avatar-btn" 
+            <button
+              className="header-avatar-btn"
               onClick={() => setShowDropdown(!showDropdown)}
             >
               <div className="header-avatar">
@@ -301,12 +385,9 @@ export default function ChatScreen({ user }) {
                   <span className="dropdown-name">{user.displayName}</span>
                 </div>
                 <hr className="dropdown-divider" />
-                <button 
+                <button
                   className="dropdown-item danger"
-                  onClick={() => {
-                    setShowClearBanner(true);
-                    setShowDropdown(false);
-                  }}
+                  onClick={() => { setShowClearBanner(true); setShowDropdown(false); }}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path>
@@ -316,10 +397,7 @@ export default function ChatScreen({ user }) {
                   Clear Chat
                 </button>
                 {clearTimestamp && (
-                  <button 
-                    className="dropdown-item"
-                    onClick={handleRestoreAll}
-                  >
+                  <button className="dropdown-item" onClick={handleRestoreAll}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="1 4 1 10 7 10"></polyline>
                       <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
@@ -349,19 +427,15 @@ export default function ChatScreen({ user }) {
             This will clear the chat from your view only. Others won't be affected. Confirm?
           </span>
           <div className="clear-banner-actions">
-            <button className="clear-banner-confirm" onClick={handleClearConfirm}>
-              Confirm
-            </button>
-            <button className="clear-banner-cancel" onClick={() => setShowClearBanner(false)}>
-              Cancel
-            </button>
+            <button className="clear-banner-confirm" onClick={handleClearConfirm}>Confirm</button>
+            <button className="clear-banner-cancel" onClick={() => setShowClearBanner(false)}>Cancel</button>
           </div>
         </div>
       )}
 
       {/* Message list */}
       <main className="message-list" ref={listRef} onScroll={handleScroll}>
-        {messages.length === 0 && (
+        {visibleMessages.length === 0 && (
           <div className="empty-state">
             <span className="empty-bolt">⚡</span>
             <p>No messages yet. Say hello!</p>
@@ -414,17 +488,62 @@ export default function ChatScreen({ user }) {
 
       {/* Input form */}
       <form className="message-form" onSubmit={handleSend}>
+        {/* Hidden file input */}
         <input
-          ref={inputRef}
-          type="text"
-          placeholder="Type a message..."
-          value={text}
-          onChange={handleTextChange}
-          onKeyDown={handleKeyDown}
-          maxLength={500}
-          autoComplete="off"
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={handleFileInputChange}
         />
-        <button type="submit" disabled={!text.trim() || sending} className="send-btn">
+
+        {/* Attach button */}
+        <button
+          type="button"
+          className="attach-btn"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={sending}
+          title="Send image"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </button>
+
+        <div className="input-wrapper">
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder={uploadProgress !== null ? "Uploading…" : "Type a message or drop an image…"}
+            value={text}
+            onChange={handleTextChange}
+            onKeyDown={handleKeyDown}
+            maxLength={500}
+            autoComplete="off"
+            disabled={uploadProgress !== null}
+          />
+          {/* Upload progress bar */}
+          {uploadProgress !== null && (
+            <div className="upload-progress-bar">
+              <div className="upload-progress-fill" style={{ width: `${uploadProgress}%` }} />
+            </div>
+          )}
+          {/* Upload error */}
+          {uploadError && (
+            <div className="upload-error">
+              ⚠️ {uploadError}
+              <button onClick={() => setUploadError(null)}>✕</button>
+            </div>
+          )}
+        </div>
+
+        <button
+          type="submit"
+          disabled={!text.trim() || sending}
+          className="send-btn"
+        >
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
           </svg>

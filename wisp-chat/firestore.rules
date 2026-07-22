@@ -7,13 +7,29 @@ service cloud.firestore {
     match /messages/{messageId} {
       allow read: if request.auth != null;
 
+      // Valid text message OR valid image message (text can be empty)
       allow create: if request.auth != null
-                    && request.resource.data.text is string
-                    && request.resource.data.text.size() > 0
-                    && request.resource.data.text.size() <= 500
+                    && request.resource.data.uid == request.auth.uid
                     && request.resource.data.sender is string
                     && request.resource.data.sender.size() > 0
-                    && request.resource.data.uid == request.auth.uid;
+                    && (
+                      // Text message: non-empty text, no imageUrl required
+                      (
+                        request.resource.data.text is string
+                        && request.resource.data.text.size() > 0
+                        && request.resource.data.text.size() <= 500
+                        && !('imageUrl' in request.resource.data)
+                      )
+                      ||
+                      // Image message: imageUrl must be present, text can be empty string
+                      (
+                        'imageUrl' in request.resource.data
+                        && request.resource.data.imageUrl is string
+                        && request.resource.data.imageUrl.size() > 0
+                        && request.resource.data.text is string
+                        && request.resource.data.text.size() <= 500
+                      )
+                    );
 
       // Allow authenticated users to update only the reactions field
       allow update: if request.auth != null

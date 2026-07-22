@@ -178,3 +178,51 @@
 
 .bubble-mine   .msg-time { color: rgba(255,255,255,0.85); }
 .bubble-theirs .msg-time { color: #9ca3af; }
+
+/* ---- Image in bubble ---- */
+.msg-image-wrapper {
+  width: 100%;
+  max-width: 260px;
+  border-radius: 10px;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.msg-image {
+  width: 100%;
+  max-width: 260px;
+  border-radius: 10px;
+  display: block;
+  cursor: zoom-in;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.msg-image:hover {
+  opacity: 0.92;
+  transform: scale(1.01);
+}
+
+/* Broken image placeholder */
+.msg-image-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 20px;
+  width: 200px;
+  background: rgba(0,0,0,0.08);
+  border-radius: 10px;
+  color: #9ca3af;
+}
+
+.msg-image-error svg {
+  width: 32px;
+  height: 32px;
+  opacity: 0.5;
+}
+
+.msg-image-error span {
+  font-size: 0.78rem;
+  opacity: 0.7;
+}
+
