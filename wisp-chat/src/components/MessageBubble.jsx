@@ -131,7 +131,7 @@ function InlineEdit({ msg, onCancel }) {
   );
 }
 
-export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGroup, currentUid, searchTerm = "" }) {
+export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGroup, currentUid, searchTerm = "", onAvatarClick }) {
   const showAvatar = !isMine && isLastInGroup;
   const showSender = !isMine && isFirstInGroup;
   const [lightboxSrc, setLightboxSrc] = useState(null);
@@ -163,7 +163,11 @@ export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGro
         {!isMine && (
           <div className="msg-avatar-slot">
             {showAvatar ? (
-              <div className="msg-avatar">
+              <div 
+                className="msg-avatar clickable"
+                onClick={onAvatarClick}
+                title="View Profile"
+              >
                 {msg.photoURL ? (
                   <img src={msg.photoURL} alt={msg.sender} referrerPolicy="no-referrer" />
                 ) : (
@@ -178,7 +182,11 @@ export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGro
 
         <div className="msg-content">
           {showSender && (
-            <div className="msg-sender">
+            <div 
+              className="msg-sender clickable"
+              onClick={onAvatarClick}
+              title="View Profile"
+            >
               <HighlightText text={msg.sender} highlight={searchTerm} />
             </div>
           )}
@@ -291,7 +299,11 @@ export default function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGro
         {isMine && (
           <div className="msg-avatar-slot">
             {showAvatar || isLastInGroup ? (
-              <div className="msg-avatar mine-avatar">
+              <div 
+                className="msg-avatar mine-avatar clickable"
+                onClick={onAvatarClick}
+                title="My Profile"
+              >
                 {msg.photoURL ? (
                   <img src={msg.photoURL} alt={msg.sender} referrerPolicy="no-referrer" />
                 ) : (

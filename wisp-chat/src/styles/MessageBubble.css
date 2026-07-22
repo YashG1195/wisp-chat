@@ -418,3 +418,15 @@
   background-color: rgba(253, 224, 71, 0.7);
   color: #1a1a2e;
 }
+
+/* ---- Clickable elements ---- */
+.msg-avatar.clickable,
+.msg-sender.clickable {
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.msg-avatar.clickable:hover,
+.msg-sender.clickable:hover {
+  opacity: 0.8;
+}

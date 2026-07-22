@@ -63,6 +63,15 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
+    // Users collection: for user profiles
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'bio', 'photoURL', 'updatedAt']);
+    }
+
     // Deny everything else by default
     match /{document=**} {
       allow read, write: if false;
